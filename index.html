@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1117">
+<title>Daily Tracker</title>
+<link rel="manifest" href='data:application/manifest+json,{"name":"Daily Tracker","short_name":"Tracker","display":"standalone","background_color":"%230d1117","theme_color":"%230d1117","start_url":"."}'>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0d1117; --card:#161b22; --border:#2b323b; --fg:#e6edf3; --dim:#8b949e;
+  --accent:#58a6ff; --good:#3fb950; --bad:#f85149;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+.wrap{max-width:760px;margin:0 auto;padding:12px;}
+h1{font-size:1.25rem;margin:8px 0 4px;}
+.sub{color:var(--dim);font-size:.8rem;margin-bottom:12px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;}
+label{display:block;font-size:.78rem;color:var(--dim);margin:8px 0 3px;}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);
+  background:#0d1117;color:var(--fg);font-size:1rem;}
+button{width:100%;padding:12px;border-radius:10px;border:none;font-size:1rem;font-weight:600;
+  background:var(--accent);color:#0d1117;cursor:pointer;margin-top:12px;}
+button.ghost{background:transparent;color:var(--dim);border:1px solid var(--border);font-weight:400;padding:8px;}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.tab{flex:1;min-width:100px;padding:9px 4px;border-radius:8px;background:var(--card);
+  border:1px solid var(--border);color:var(--dim);text-align:center;font-size:.72rem;cursor:pointer;}
+.tab.active{border-color:var(--accent);color:var(--accent);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+canvas{max-width:100%;}
+.small{font-size:.75rem;color:var(--dim);}
+.row{display:flex;gap:8px;}
+.row>*{flex:1;}
+#toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--good);color:#04140a;
+  padding:10px 18px;border-radius:20px;font-weight:600;display:none;z-index:99;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📈 Daily Tracker</h1>
+  <div class="sub">Log once a day. Data stays on this device. Add to home screen for the app-like experience.</div>
+
+  <div class="card">
+    <div class="grid2">
+      <div><label>Date</label><input type="date" id="fDate"></div>
+      <div><label>Sleep duration (hours)</label><input type="number" id="fSleep" step="0.1" min="0" placeholder="8"></div>
+      <div><label>Screentime (hours)</label><input type="number" id="fScreen" step="0.1" min="0" placeholder="3"></div>
+      <div><label>Deep focus (hours)</label><input type="number" id="fFocus" step="0.1" min="0" placeholder="2"></div>
+      <div><label>Meditation (minutes)</label><input type="number" id="fMed" step="1" min="0" placeholder="10"></div>
+      <div><label>Sleeping time (bedtime, e.g. 23.5 = 23:30)</label><input type="number" id="fBed" step="0.1" min="0" max="24" placeholder="23"></div>
+      <div><label>Reading (minutes)</label><input type="number" id="fRead" step="1" min="0" placeholder="20"></div>
+    </div>
+    <button onclick="saveEntry()">Save entry</button>
+    <div class="row" style="margin-top:8px;">
+      <button class="ghost" onclick="exportData()">Export JSON</button>
+      <button class="ghost" onclick="document.getElementById('importFile').click()">Import JSON</button>
+    </div>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+  </div>
+
+  <div class="card">
+    <div class="tabs" id="tabs"></div>
+    <canvas id="chart" height="260"></canvas>
+    <div class="small" style="margin-top:8px;">Dashed line = baseline target. Dots below target for “at least” metrics (and above for “at most” like screentime/bedtime) are shown red.</div>
+  </div>
+</div>
+<div id="toast">Saved ✓</div>
+
+<script>
+const METRICS = {
+  sleep:  {label:"Sleep (h)",        unit:"h", base:8,   dir:"min", color:"#58a6ff"},
+  screen: {label:"Screentime (h)",   unit:"h", base:3,   dir:"max", color:"#f85149"},
+  focus:  {label:"Deep focus (h)",   unit:"h", base:2,   dir:"min", color:"#3fb950"},
+  med:    {label:"Meditation (min)", unit:"min", base:10,dir:"min", color:"#bc8cff"},
+  bed:    {label:"Bedtime (24h)",    unit:"",  base:23.5,dir:"max", color:"#ffa657"},
+  read:   {label:"Reading (min)",    unit:"min", base:20,dir:"min", color:"#76e3ea"},
+};
+const LS_KEY = "dailyTracker.v1";
+let data = load();
+let chart = null, current = "all";
+
+// Default bedtimes wrap past midnight; convert 0-6 to 24-30 for graphing
+function bedNorm(v){ return (v >= 0 && v < 6) ? v + 24 : v; }
+function bedDenorm(v){ return v >= 24 ? v - 24 : v; }
+
+function load(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }catch(e){ return {}; }
+}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(data)); }
+
+function saveEntry(){
+  const d = document.getElementById("fDate").value;
+  if(!d){ alert("Pick a date"); return; }
+  const entry = {
+    sleep:  val("fSleep"), screen: val("fScreen"), focus: val("fFocus"),
+    med:    val("fMed"),    read:   val("fRead"),
+    bed:    document.getElementById("fBed").value === "" ? null : val("fBed"),
+  };
+  data[d] = {...(data[d]||{}), ...entry};
+  save(); render();
+  const t = document.getElementById("toast");
+  t.style.display="block"; setTimeout(()=>t.style.display="none", 1500);
+}
+function val(id){ const v = parseFloat(document.getElementById(id).value); return isNaN(v)?null:v; }
+
+function dates(){ return Object.keys(data).sort(); }
+
+function buildTabs(){
+  const tabs = document.getElementById("tabs");
+  tabs.innerHTML = "";
+  const mk = (id,label)=>{
+    const el = document.createElement("div");
+    el.className = "tab" + (id===current?" active":"");
+    el.textContent = label;
+    el.onclick = ()=>{ current=id; buildTabs(); renderChart(); };
+    tabs.appendChild(el);
+  };
+  mk("all","All (% of target)");
+  for(const k in METRICS) mk(k, METRICS[k].label);
+}
+
+function renderChart(){
+  const ds = [], labels = dates();
+  const xLabels = labels.map(d=>d.slice(5));
+  const plugins = [];
+
+  function pointColor(key, raw){
+    if(raw==null) return METRICS[key].color;
+    const m = METRICS[key];
+    const bad = m.dir==="min" ? raw < m.base : raw > m.base;
+    return bad ? "#f85149" : m.color;
+  }
+
+  if(current==="all"){
+    for(const k in METRICS){
+      const m = METRICS[k];
+      ds.push({
+        label:m.label, borderColor:m.color, backgroundColor:m.color,
+        borderWidth:2, pointRadius:3, spanGaps:true, yAxisID:"y",
+        data: labels.map(d=>{
+          let v = data[d] ? data[d][k] : null;
+          if(v==null) return null;
+          if(k==="bed") v = bedNorm(v);
+          return +(v/m.base*100).toFixed(1);
+        }),
+      });
+    }
+    ds.push({label:"100% = target", borderColor:"#8b949e", borderDash:[6,4],
+      pointRadius:0, borderWidth:1.5, data: labels.map(()=>100)});
+  } else {
+    const m = METRICS[current];
+    ds.push({
+      label:m.label, borderColor:m.color, backgroundColor:m.color,
+      borderWidth:2.5, pointRadius:4, spanGaps:true,
+      pointBackgroundColor: labels.map(d=>{
+        const v = data[d] ? data[d][current] : null;
+        return pointColor(current, v);
+      }),
+      data: labels.map(d=>{
+        let v = data[d] ? data[d][current] : null;
+        if(v!=null && current==="bed") v = bedNorm(v);
+        return v;
+      }),
+    });
+    ds.push({label:"Baseline "+m.base+m.unit, borderColor:"#f85149", borderDash:[6,4],
+      pointRadius:0, borderWidth:1.5, data: labels.map(()=>m.base)});
+    // bedtime axis runs to 30 (i.e. 6am)
+  }
+
+  if(chart) chart.destroy();
+  const ctx = document.getElementById("chart").getContext("2d");
+  const isBed = current==="bed";
+  chart = new Chart(ctx, {
+    type:"line",
+    data:{labels:xLabels, datasets:ds},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"index", intersect:false},
+      scales:{
+        x:{ticks:{color:"#8b949e", maxRotation:60, font:{size:10}}, grid:{color:"#21262d"}},
+        y:{
+          min: current==="all" ? 0 : undefined,
+          max: isBed ? 30 : undefined,
+          ticks:{ color:"#8b949e", callback: isBed ? v => (v%24)+":00" : undefined },
+          grid:{color:"#21262d"},
+          title:{display:current==="all", text:"% of baseline", color:"#8b949e"},
+        },
+      },
+      plugins:{ legend:{labels:{color:"#e6edf3", boxWidth:14, font:{size:11}}},
+        tooltip:{ callbacks:{ title: items => labels[items[0].dataIndex] } } },
+    },
+  });
+  document.getElementById("chart").style.height = "320px";
+}
+
+function render(){
+  buildTabs();
+  renderChart();
+  // prefill today's date & existing values
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById("fDate").value = today;
+  const e = data[today] || {};
+  for(const k in METRICS){
+    const el = document.getElementById({sleep:"fSleep",screen:"fScreen",focus:"fFocus",med:"fMed",bed:"fBed",read:"fRead"}[k]);
+    el.value = e[k]!=null ? e[k] : "";
+  }
+}
+
+function exportData(){
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "daily-tracker.json"; a.click();
+}
+function importData(ev){
+  const f = ev.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{ try{ data = JSON.parse(r.result); save(); render(); }catch(e){ alert("Invalid file"); } };
+  r.readAsText(f);
+}
+
+document.getElementById("fDate").addEventListener("change", function(){
+  const e = data[this.value] || {};
+  for(const k in METRICS){
+    document.getElementById({sleep:"fSleep",screen:"fScreen",focus:"fFocus",med:"fMed",bed:"fBed",read:"fRead"}[k]).value = e[k]!=null?e[k]:"";
+  }
+});
+
+render();
+</script>
+</body>
+</html>
