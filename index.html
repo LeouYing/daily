@@ -1,252 +1,882 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0d1117">
-<title>Daily Tracker</title>
-<link rel="manifest" href='data:application/manifest+json,{"name":"Daily Tracker","short_name":"Tracker","display":"standalone","background_color":"%230d1117","theme_color":"%230d1117","start_url":"."}'>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>
-:root{
-  --bg:#0d1117; --card:#161b22; --border:#2b323b; --fg:#e6edf3; --dim:#8b949e;
-  --accent:#58a6ff; --good:#3fb950; --bad:#f85149;
-}
-*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
-.wrap{max-width:760px;margin:0 auto;padding:12px;}
-h1{font-size:1.25rem;margin:8px 0 4px;}
-.sub{color:var(--dim);font-size:.8rem;margin-bottom:12px;}
-.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;}
-label{display:block;font-size:.78rem;color:var(--dim);margin:8px 0 3px;}
-input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);
-  background:#0d1117;color:var(--fg);font-size:1rem;}
-button{width:100%;padding:12px;border-radius:10px;border:none;font-size:1rem;font-weight:600;
-  background:var(--accent);color:#0d1117;cursor:pointer;margin-top:12px;}
-button.ghost{background:transparent;color:var(--dim);border:1px solid var(--border);font-weight:400;padding:8px;}
-.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
-.tab{flex:1;min-width:100px;padding:9px 4px;border-radius:8px;background:var(--card);
-  border:1px solid var(--border);color:var(--dim);text-align:center;font-size:.72rem;cursor:pointer;}
-.tab.active{border-color:var(--accent);color:var(--accent);}
-.range{display:flex;gap:6px;margin-bottom:10px;}
-.rbtn{flex:1;padding:7px 0;border-radius:8px;background:#0d1117;border:1px solid var(--border);
-  color:var(--dim);font-size:.8rem;text-align:center;cursor:pointer;}
-.rbtn.active{border-color:var(--accent);color:var(--accent);}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.chartBox{position:relative;height:320px;}
-.small{font-size:.75rem;color:var(--dim);}
-.row{display:flex;gap:8px;}
-.row>*{flex:1;}
-#toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--good);color:#04140a;
-  padding:10px 18px;border-radius:20px;font-weight:600;display:none;z-index:99;}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Daily Log">
+  <meta name="description" content="A simple private daily habit and time tracker.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <title>Daily Log</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f4f6fa;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --ink: #172033;
+      --muted: #647089;
+      --line: #e4e9f1;
+      --accent: #3559d8;
+      --accent-soft: #edf1ff;
+      --good: #16845b;
+      --good-soft: #e8f6ef;
+      --bad: #c64d49;
+      --bad-soft: #fff0ef;
+      --target: #d18a24;
+      --shadow: 0 8px 30px rgba(23, 32, 51, .055);
+      --radius: 18px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: var(--page); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: var(--page);
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    button, input { font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; }
+    .app-shell { width: min(1120px, 100%); margin: 0 auto; padding: 26px 22px 52px; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 24px; }
+    .brand { display: flex; gap: 13px; align-items: center; min-width: 0; }
+    .brand-mark {
+      display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px;
+      border-radius: 14px; background: #17233b; color: #fff; box-shadow: 0 5px 14px rgba(23,35,59,.18);
+    }
+    .brand-mark svg { width: 25px; height: 25px; }
+    h1 { margin: 0; font-size: 1.35rem; line-height: 1.15; letter-spacing: -.035em; }
+    .subtitle { margin: 5px 0 0; color: var(--muted); font-size: .9rem; line-height: 1.35; }
+    .top-note { color: var(--muted); font-size: .78rem; text-align: right; padding-top: 5px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .entry-panel { padding: 22px; margin-bottom: 22px; }
+    .section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 17px; }
+    h2 { margin: 0; font-size: 1.05rem; letter-spacing: -.02em; }
+    .section-hint { color: var(--muted); margin: 5px 0 0; font-size: .82rem; line-height: 1.4; }
+    .entry-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px 16px; }
+    .field { min-width: 0; }
+    .field label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: #344057; font-weight: 650; font-size: .82rem; margin: 0 0 7px; }
+    .field label span { color: #8791a3; font-size: .72rem; font-weight: 450; white-space: nowrap; }
+    .field input {
+      width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #dce2ec; border-radius: 11px;
+      background: #fff; color: var(--ink); outline: none; font-size: 1rem; transition: border-color .15s, box-shadow .15s;
+    }
+    .field input:focus, .target-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(53,89,216,.12); }
+    .field input::placeholder { color: #aab2c0; }
+    .field input[type="date"], .field input[type="time"] { min-height: 46px; }
+    .form-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+    .form-help { color: var(--muted); font-size: .78rem; line-height: 1.4; }
+    .button-row { display: flex; gap: 9px; flex-wrap: wrap; }
+    .button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 15px;
+      border: 1px solid transparent; border-radius: 11px; cursor: pointer; font-size: .85rem; font-weight: 650;
+      transition: transform .12s, background .12s, border-color .12s;
+    }
+    .button:active { transform: translateY(1px); }
+    .button-primary { background: var(--accent); color: #fff; }
+    .button-primary:hover { background: #294bc3; }
+    .button-secondary { background: #fff; color: #35415a; border-color: #dce2ec; }
+    .button-secondary:hover { background: var(--surface-soft); }
+    .button-danger { background: #fff; color: var(--bad); border-color: #f0d4d2; }
+    .button-danger:hover { background: var(--bad-soft); }
+    .button:focus-visible, .range-button:focus-visible, summary:focus-visible { outline: 3px solid rgba(53,89,216,.3); outline-offset: 2px; }
+
+    .charts-section { margin-top: 8px; }
+    .charts-heading { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; margin-bottom: 13px; }
+    .legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: .76rem; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .legend-dot { width: 8px; height: 8px; display: inline-block; border-radius: 50%; background: var(--good); }
+    .legend-line { width: 20px; border-top: 2px dashed var(--target); display: inline-block; }
+    .range-bar { display: flex; align-items: center; gap: 5px; padding: 4px; background: #e9edf4; border-radius: 12px; margin-bottom: 16px; width: fit-content; max-width: 100%; }
+    .range-button { border: 0; border-radius: 9px; background: transparent; color: #657089; padding: 8px 13px; min-width: 48px; cursor: pointer; font-size: .78rem; font-weight: 650; }
+    .range-button.active { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(23,32,51,.09); }
+    .metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+    .metric-card { min-width: 0; padding: 17px 18px 13px; overflow: hidden; }
+    .metric-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .metric-name-wrap { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .metric-icon { display: grid; place-items: center; width: 33px; height: 33px; border-radius: 10px; flex: 0 0 33px; font-size: 1rem; }
+    .metric-title { margin: 0; font-size: .92rem; font-weight: 700; letter-spacing: -.015em; }
+    .metric-target { color: var(--muted); font-size: .73rem; margin-top: 3px; }
+    .metric-current { text-align: right; white-space: nowrap; }
+    .metric-value { font-size: 1.1rem; line-height: 1.1; letter-spacing: -.035em; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .metric-date { color: var(--muted); font-size: .68rem; margin-top: 4px; }
+    .chart-wrap { width: 100%; height: 190px; margin-top: 7px; position: relative; }
+    .metric-chart { display: block; width: 100%; height: 100%; }
+    .empty-chart { position: absolute; inset: 0; display: grid; place-items: center; color: #9aa4b4; font-size: .82rem; pointer-events: none; }
+
+    details.settings { padding: 16px 19px; margin-top: 17px; }
+    details.settings summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #344057; font-size: .87rem; font-weight: 700; }
+    details.settings summary::-webkit-details-marker { display: none; }
+    details.settings summary::after { content: "+"; font-size: 1.2rem; color: var(--muted); font-weight: 400; }
+    details.settings[open] summary::after { content: "−"; }
+    .settings-content { padding-top: 15px; }
+    .target-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+    .target-field label { display: block; font-size: .76rem; color: var(--muted); margin-bottom: 6px; }
+    .target-field input { width: 100%; min-height: 40px; border: 1px solid #dce2ec; border-radius: 9px; padding: 8px 10px; color: var(--ink); background: #fff; outline: none; }
+    .settings-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 13px; }
+    .data-panel { padding: 16px 19px; margin-top: 13px; }
+    .data-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+    .data-panel h2 { font-size: .9rem; }
+    .data-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .data-actions .button { min-height: 36px; padding: 7px 11px; font-size: .76rem; }
+    .privacy-note { color: var(--muted); font-size: .75rem; line-height: 1.5; margin: 12px 0 0; }
+    .install-note { margin-top: 14px; color: var(--muted); font-size: .75rem; line-height: 1.5; }
+    .install-note strong { color: #49556b; }
+    #storage-warning { display: none; background: #fff6e8; border: 1px solid #f2d8aa; color: #80561b; border-radius: 11px; padding: 11px 13px; margin: 0 0 15px; font-size: .8rem; line-height: 1.45; }
+    #toast { position: fixed; z-index: 20; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translate(-50%, 12px); opacity: 0; pointer-events: none; background: #17233b; color: #fff; border-radius: 999px; padding: 11px 17px; box-shadow: 0 8px 24px rgba(16,24,39,.22); font-size: .82rem; font-weight: 650; transition: opacity .18s, transform .18s; max-width: calc(100vw - 32px); text-align: center; }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 760px) {
+      .app-shell { padding: 20px 15px 38px; }
+      .entry-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .target-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .charts-heading { align-items: flex-start; flex-direction: column; gap: 9px; }
+    }
+    @media (max-width: 520px) {
+      .app-shell { padding: 17px 12px 34px; }
+      .topbar { margin-bottom: 18px; }
+      .top-note { display: none; }
+      .entry-panel { padding: 17px 14px; }
+      .section-heading { margin-bottom: 14px; }
+      .entry-grid { gap: 13px 10px; }
+      .field label { display: block; font-size: .77rem; min-height: 30px; }
+      .field label span { display: block; margin-top: 2px; }
+      .field input { min-height: 44px; padding: 9px 10px; }
+      .form-footer { align-items: stretch; }
+      .form-footer .button-row { width: 100%; }
+      .form-footer .button-row .button { flex: 1; }
+      .form-help { width: 100%; }
+      .range-bar { width: 100%; justify-content: space-between; }
+      .range-button { min-width: 0; flex: 1; padding: 8px 4px; }
+      .metric-grid { grid-template-columns: 1fr; gap: 11px; }
+      .metric-card { padding: 15px 14px 11px; }
+      .chart-wrap { height: 184px; }
+      .target-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      details.settings, .data-panel { padding: 15px 14px; }
+      .data-panel-header { align-items: flex-start; flex-direction: column; }
+      .data-actions { width: 100%; }
+      .data-actions .button { flex: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>📈 Daily Tracker</h1>
-  <div class="sub">Log once a day. Data stays on this device.</div>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M3 17.5 8.2 12l3.5 3.1L20.8 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.8 5.5h5v5" stroke="#f5b84b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <h1>Daily Log</h1>
+          <p class="subtitle">A clearer picture of your everyday habits.</p>
+        </div>
+      </div>
+      <div class="top-note">Private by default · Stored on this device</div>
+    </header>
 
-  <div class="card">
-    <div class="grid2">
-      <div><label>Date</label><input type="date" id="fDate"></div>
-      <div><label>Sleep duration (hours)</label><input type="number" id="fSleep" step="0.1" min="0" placeholder="8"></div>
-      <div><label>Screentime (hours)</label><input type="number" id="fScreen" step="0.1" min="0" placeholder="3"></div>
-      <div><label>Deep focus (hours)</label><input type="number" id="fFocus" step="0.1" min="0" placeholder="2"></div>
-      <div><label>Meditation (minutes)</label><input type="number" id="fMed" step="1" min="0" placeholder="10"></div>
-      <div><label>Sleeping time (bedtime, e.g. 23.5 = 23:30)</label><input type="number" id="fBed" step="0.1" min="0" max="24" placeholder="23"></div>
-      <div><label>Reading (minutes)</label><input type="number" id="fRead" step="1" min="0" placeholder="20"></div>
-    </div>
-    <button onclick="saveEntry()">Save entry</button>
-    <div class="row" style="margin-top:8px;">
-      <button class="ghost" onclick="exportData()">Export JSON</button>
-      <button class="ghost" onclick="document.getElementById('importFile').click()">Import JSON</button>
-    </div>
-    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
-  </div>
+    <div id="storage-warning" role="status"></div>
 
-  <div class="card">
-    <div class="tabs" id="tabs"></div>
-    <div class="range" id="rangeBtns"></div>
-    <div class="chartBox"><canvas id="chart"></canvas></div>
-    <div class="small" style="margin-top:8px;">Dashed line = baseline target. Dots off-target are red.</div>
-  </div>
-</div>
-<div id="toast">Saved ✓</div>
+    <section class="panel entry-panel" aria-labelledby="entry-heading">
+      <div class="section-heading">
+        <div>
+          <h2 id="entry-heading">Daily check-in</h2>
+          <p class="section-hint">Add what you tracked today. You can leave any field blank.</p>
+        </div>
+      </div>
+      <form id="entry-form">
+        <div class="entry-grid">
+          <div class="field">
+            <label for="entry-date">Date</label>
+            <input id="entry-date" name="date" type="date" required>
+          </div>
+          <div class="field">
+            <label for="entry-sleep">Sleep duration <span>hours</span></label>
+            <input id="entry-sleep" name="sleep" type="number" inputmode="decimal" min="0" max="24" step="0.1" placeholder="e.g. 7.5">
+          </div>
+          <div class="field">
+            <label for="entry-screen">Screen time <span>hours</span></label>
+            <input id="entry-screen" name="screen" type="number" inputmode="decimal" min="0" max="24" step="0.1" placeholder="e.g. 3.2">
+          </div>
+          <div class="field">
+            <label for="entry-focus">Deep focus <span>hours</span></label>
+            <input id="entry-focus" name="focus" type="number" inputmode="decimal" min="0" max="24" step="0.1" placeholder="e.g. 2.0">
+          </div>
+          <div class="field">
+            <label for="entry-meditation">Meditation <span>minutes</span></label>
+            <input id="entry-meditation" name="med" type="number" inputmode="numeric" min="0" max="1440" step="1" placeholder="e.g. 10">
+          </div>
+          <div class="field">
+            <label for="entry-bedtime">Bedtime <span>local time</span></label>
+            <input id="entry-bedtime" name="bed" type="time">
+          </div>
+          <div class="field">
+            <label for="entry-reading">Reading <span>minutes</span></label>
+            <input id="entry-reading" name="read" type="number" inputmode="numeric" min="0" max="1440" step="1" placeholder="e.g. 20">
+          </div>
+        </div>
+        <div class="form-footer">
+          <div class="form-help">Saving again for the same date updates that day's entry.</div>
+          <div class="button-row">
+            <button class="button button-secondary" id="clear-day" type="button">Clear this day</button>
+            <button class="button button-primary" type="submit">Save entry</button>
+          </div>
+        </div>
+      </form>
+    </section>
 
-<script>
-// ============================================================
-// EDIT YOUR BASELINES HERE  (base = threshold, dir = "min" or "max")
-// ============================================================
-const METRICS = {
-  sleep:  {label:"Sleep (h)",        unit:"h", base:8,    dir:"min", color:"#58a6ff"},
-  screen: {label:"Screentime (h)",   unit:"h", base:3,    dir:"max", color:"#f85149"},
-  focus:  {label:"Deep focus (h)",   unit:"h", base:2,    dir:"min", color:"#3fb950"},
-  med:    {label:"Meditation (min)", unit:"min", base:10, dir:"min", color:"#bc8cff"},
-  bed:    {label:"Bedtime (24h)",    unit:"",  base:23.5, dir:"max", color:"#ffa657"},
-  read:   {label:"Reading (min)",    unit:"min", base:20, dir:"min", color:"#76e3ea"},
-};
-// ============================================================
-const LS_KEY = "dailyTracker.v1";
-let data = load();
-let chart = null, current = "all", rangeDays = 14;
+    <section class="charts-section" aria-labelledby="charts-heading">
+      <div class="charts-heading">
+        <div>
+          <h2 id="charts-heading">Your trends</h2>
+          <p class="section-hint">Each measurement has its own scale, unit, and target line.</p>
+        </div>
+        <div class="legend" aria-label="Chart legend">
+          <span class="legend-item"><i class="legend-dot" aria-hidden="true"></i> On target</span>
+          <span class="legend-item"><i class="legend-dot" style="background:var(--bad)" aria-hidden="true"></i> Off target</span>
+          <span class="legend-item"><i class="legend-line" aria-hidden="true"></i> Target</span>
+        </div>
+      </div>
+      <div class="range-bar" id="range-bar" role="group" aria-label="Chart date range">
+        <button class="range-button" type="button" data-days="7">7 days</button>
+        <button class="range-button active" type="button" data-days="14" aria-pressed="true">14 days</button>
+        <button class="range-button" type="button" data-days="30">30 days</button>
+        <button class="range-button" type="button" data-days="90">90 days</button>
+        <button class="range-button" type="button" data-days="0">All</button>
+      </div>
+      <div class="metric-grid" id="metric-grid"></div>
+    </section>
 
-function bedNorm(v){ return (v >= 0 && v < 6) ? v + 24 : v; }
-function load(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }catch(e){ return {}; } }
-function save(){ localStorage.setItem(LS_KEY, JSON.stringify(data)); }
+    <details class="panel settings" id="settings-panel">
+      <summary>Adjust your target thresholds</summary>
+      <div class="settings-content">
+        <p class="section-hint" style="margin:0 0 13px">These are personal tracking targets, not medical recommendations. Change them whenever your goals change.</p>
+        <form id="targets-form">
+          <div class="target-grid" id="target-grid"></div>
+          <div class="settings-actions">
+            <button class="button button-secondary" id="reset-targets" type="button">Restore defaults</button>
+            <button class="button button-primary" type="submit">Save targets</button>
+          </div>
+        </form>
+      </div>
+    </details>
 
-function saveEntry(){
-  const d = document.getElementById("fDate").value;
-  if(!d){ alert("Pick a date"); return; }
-  const entry = {
-    sleep: val("fSleep"), screen: val("fScreen"), focus: val("fFocus"),
-    med: val("fMed"), read: val("fRead"),
-    bed: document.getElementById("fBed").value === "" ? null : val("fBed"),
-  };
-  data[d] = {...(data[d]||{}), ...entry};
-  save(); render();
-  const t = document.getElementById("toast");
-  t.style.display="block"; setTimeout(()=>t.style.display="none", 1500);
-}
-function val(id){ const v = parseFloat(document.getElementById(id).value); return isNaN(v)?null:v; }
+    <section class="panel data-panel" aria-labelledby="data-heading">
+      <div class="data-panel-header">
+        <div>
+          <h2 id="data-heading">Your data</h2>
+          <p class="privacy-note" style="margin:4px 0 0">Entries stay in this browser on this device. Export a backup regularly; clearing Safari website data can erase them.</p>
+        </div>
+        <div class="data-actions">
+          <button class="button button-secondary" id="export-data" type="button">Export backup</button>
+          <button class="button button-secondary" id="import-data" type="button">Import backup</button>
+          <input class="sr-only" id="import-file" type="file" accept="application/json,.json">
+        </div>
+      </div>
+      <p class="install-note"><strong>iPhone:</strong> Open this site in Safari, tap Share, then choose “Add to Home Screen”. After the first visit, the app shell and charts can also load offline when the site is hosted over HTTPS.</p>
+    </section>
+  </main>
 
-// Only show the last `rangeDays` dates with at least one entry
-function visibleDates(){
-  const all = Object.keys(data).sort();
-  if(rangeDays === 0) return all; // "All"
-  return all.slice(-rangeDays);
-}
+  <div id="toast" role="status" aria-live="polite"></div>
 
-function buildTabs(){
-  const tabs = document.getElementById("tabs");
-  tabs.innerHTML = "";
-  const mk = (id,label)=>{
-    const el = document.createElement("div");
-    el.className = "tab" + (id===current?" active":"");
-    el.textContent = label;
-    el.onclick = ()=>{ current=id; buildTabs(); renderChart(); };
-    tabs.appendChild(el);
-  };
-  mk("all","All (% of target)");
-  for(const k in METRICS) mk(k, METRICS[k].label);
-}
+  <script>
+    "use strict";
 
-function buildRangeBtns(){
-  const box = document.getElementById("rangeBtns");
-  box.innerHTML = "";
-  [[7,"7d"],[14,"14d"],[30,"30d"],[90,"90d"],[0,"All"]].forEach(([n,lbl])=>{
-    const el = document.createElement("div");
-    el.className = "rbtn" + (n===rangeDays?" active":"");
-    el.textContent = lbl;
-    el.onclick = ()=>{ rangeDays=n; buildRangeBtns(); renderChart(); };
-    box.appendChild(el);
-  });
-}
+    const STORAGE_KEY = "dailyTracker.v2";
+    const LEGACY_STORAGE_KEY = "dailyTracker.v1";
+    const DEFAULT_TARGETS = Object.freeze({ sleep: 8, screen: 3, focus: 2, med: 10, bed: 23 * 60 + 30, read: 20 });
+    const METRICS = [
+      { key: "sleep", label: "Sleep duration", unit: "h", icon: "☾", color: "#5578dc", direction: "min", inputLabel: "hours", step: "0.1", max: 24 },
+      { key: "screen", label: "Screen time", unit: "h", icon: "▣", color: "#d58a43", direction: "max", inputLabel: "hours", step: "0.1", max: 24 },
+      { key: "focus", label: "Deep focus", unit: "h", icon: "⌁", color: "#19876b", direction: "min", inputLabel: "hours", step: "0.1", max: 24 },
+      { key: "med", label: "Meditation", unit: "min", icon: "◎", color: "#8b68c8", direction: "min", inputLabel: "minutes", step: "1", max: 1440 },
+      { key: "bed", label: "Bedtime", unit: "", icon: "◷", color: "#bd6d87", direction: "max", inputLabel: "time", step: "1", max: 1439 },
+      { key: "read", label: "Reading", unit: "min", icon: "▤", color: "#438bba", direction: "min", inputLabel: "minutes", step: "1", max: 1440 }
+    ];
 
-function renderChart(){
-  const ds = [], labels = visibleDates();
-  const xLabels = labels.map(d=>d.slice(5).replace("-","/"));
+    let state = { entries: {}, targets: { ...DEFAULT_TARGETS } };
+    let rangeDays = 14;
+    let toastTimer = null;
+    let storageAvailable = true;
 
-  function pointColor(key, raw){
-    if(raw==null) return METRICS[key].color;
-    const m = METRICS[key];
-    const bad = m.dir==="min" ? raw < m.base : raw > m.base;
-    return bad ? "#f85149" : m.color;
-  }
+    const $ = (id) => document.getElementById(id);
 
-  if(current==="all"){
-    for(const k in METRICS){
-      const m = METRICS[k];
-      ds.push({
-        label:m.label, borderColor:m.color, backgroundColor:m.color,
-        borderWidth:2, pointRadius:3, spanGaps:true,
-        data: labels.map(d=>{
-          let v = data[d] ? data[d][k] : null;
-          if(v==null) return null;
-          if(k==="bed") v = bedNorm(v);
-          return +(v/m.base*100).toFixed(1);
-        }),
+    function localDateKey(date = new Date()) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function parseDateKey(key) {
+      if (typeof key !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
+      const [y, m, d] = key.split("-").map(Number);
+      const date = new Date(y, m - 1, d);
+      if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return null;
+      date.setHours(12, 0, 0, 0);
+      return date;
+    }
+
+    function addDays(date, amount) {
+      const next = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+      next.setDate(next.getDate() + amount);
+      return next;
+    }
+
+    function formatShortDate(key) {
+      const date = parseDateKey(key);
+      if (!date) return key;
+      return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    }
+
+    function formatBedtime(minutes) {
+      if (!Number.isFinite(minutes)) return "—";
+      const h = Math.floor(minutes / 60) % 24;
+      const m = Math.round(minutes % 60);
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+
+    // Place post-midnight times after 18:00 on the same plotted night.
+    function bedtimePlotValue(minutes) {
+      return minutes < 18 * 60 ? minutes + 24 * 60 : minutes;
+    }
+
+    function bedtimeAxisLabel(plotMinutes) {
+      const totalHours = Math.round(plotMinutes / 60);
+      const hour = totalHours % 24;
+      const nextDay = totalHours >= 24;
+      return `${String(hour).padStart(2, "0")}:00${nextDay ? " +1d" : ""}`;
+    }
+
+    function formatMetricValue(key, value) {
+      if (value == null || !Number.isFinite(value)) return "—";
+      if (key === "bed") return formatBedtime(value);
+      const metric = METRICS.find((item) => item.key === key);
+      if (key === "sleep" || key === "screen" || key === "focus") return `${Number(value).toFixed(1)} h`;
+      return `${Math.round(value)} min`;
+    }
+
+    function formatTarget(metric, value) {
+      if (metric.key === "bed") return `By ${formatBedtime(value)}`;
+      const amount = metric.unit === "h" ? `${Number(value).toFixed(1).replace(/\.0$/, "")} h` : `${Math.round(value)} min`;
+      return metric.direction === "min" ? `Target ≥ ${amount}` : `Target ≤ ${amount}`;
+    }
+
+    function isOnTarget(metric, value) {
+      if (value == null) return null;
+      return metric.direction === "min" ? value >= state.targets[metric.key] : value <= state.targets[metric.key];
+    }
+
+    function validMetricValue(key, value) {
+      if (value === null) return true;
+      if (typeof value !== "number" || !Number.isFinite(value)) return false;
+      const metric = METRICS.find((item) => item.key === key);
+      if (!metric || value < 0 || value > metric.max) return false;
+      if (["med", "read", "bed"].includes(key) && !Number.isInteger(value)) return false;
+      return true;
+    }
+
+    function normalizeEntry(entry, legacy = false) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new Error("An entry is not a valid object.");
+      const normalized = {};
+      for (const metric of METRICS) {
+        const raw = entry[metric.key];
+        if (raw === undefined || raw === null || raw === "") {
+          normalized[metric.key] = null;
+          continue;
+        }
+        const parsed = typeof raw === "number" ? raw : Number(raw);
+        if (!Number.isFinite(parsed)) throw new Error(`Invalid ${metric.label.toLowerCase()} value.`);
+        // The original tracker stored bedtime as decimal hours (23.5 = 23:30).
+        const value = legacy && metric.key === "bed" ? Math.round(parsed * 60) % 1440 : parsed;
+        if (!validMetricValue(metric.key, value)) throw new Error(`Out-of-range ${metric.label.toLowerCase()} value.`);
+        normalized[metric.key] = value;
+      }
+      return normalized;
+    }
+
+    function normalizeTargets(rawTargets) {
+      const targets = { ...DEFAULT_TARGETS };
+      if (!rawTargets || typeof rawTargets !== "object" || Array.isArray(rawTargets)) return targets;
+      for (const metric of METRICS) {
+        const value = rawTargets[metric.key];
+        if (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= metric.max &&
+            (!["med", "read", "bed"].includes(metric.key) || Number.isInteger(value))) {
+          targets[metric.key] = value;
+        }
+      }
+      return targets;
+    }
+
+    function normalizeEntries(rawEntries, legacy = false) {
+      if (!rawEntries || typeof rawEntries !== "object" || Array.isArray(rawEntries)) throw new Error("The backup does not contain a valid entries object.");
+      const entries = {};
+      for (const [date, entry] of Object.entries(rawEntries)) {
+        if (!parseDateKey(date)) throw new Error(`Invalid date in backup: ${date}`);
+        entries[date] = normalizeEntry(entry, legacy);
+      }
+      return entries;
+    }
+
+    function loadState() {
+      try {
+        const currentRaw = localStorage.getItem(STORAGE_KEY);
+        if (currentRaw) {
+          const parsed = JSON.parse(currentRaw);
+          if (!parsed || parsed.version !== 2) throw new Error("Saved tracker data has an unsupported format.");
+          state = {
+            entries: normalizeEntries(parsed.entries || {}, false),
+            targets: normalizeTargets(parsed.targets)
+          };
+          return;
+        }
+
+        // Migrate existing data from the uploaded version without deleting the old copy.
+        const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacyRaw) {
+          const legacy = JSON.parse(legacyRaw);
+          state = { entries: normalizeEntries(legacy, true), targets: { ...DEFAULT_TARGETS } };
+          persistState();
+          showToast("Your previous entries were imported.");
+        }
+      } catch (error) {
+        storageAvailable = false;
+        const warning = $("storage-warning");
+        warning.style.display = "block";
+        warning.textContent = `Saved data could not be read safely (${error.message}). Your existing browser data has not been intentionally cleared. Export or inspect your old backup before continuing.`;
+        state = { entries: {}, targets: { ...DEFAULT_TARGETS } };
+      }
+    }
+
+    function persistState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, entries: state.entries, targets: state.targets }));
+        storageAvailable = true;
+        return true;
+      } catch (error) {
+        storageAvailable = false;
+        const warning = $("storage-warning");
+        warning.style.display = "block";
+        warning.textContent = "This browser could not save your data. Your latest changes may be lost when you close this page. Export a backup and check available device storage or browser privacy settings.";
+        return false;
+      }
+    }
+
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 2300);
+    }
+
+    function getDateRange() {
+      const keys = Object.keys(state.entries).sort();
+      const today = parseDateKey(localDateKey());
+      if (rangeDays > 0) {
+        const start = addDays(today, -(rangeDays - 1));
+        const dates = [];
+        for (let cursor = start; cursor <= today; cursor = addDays(cursor, 1)) dates.push(localDateKey(cursor));
+        return dates;
+      }
+      if (!keys.length) return [];
+      const first = parseDateKey(keys[0]);
+      const lastEntry = parseDateKey(keys[keys.length - 1]);
+      const end = lastEntry > today ? lastEntry : today;
+      const dates = [];
+      for (let cursor = first; cursor <= end; cursor = addDays(cursor, 1)) dates.push(localDateKey(cursor));
+      return dates;
+    }
+
+    function buildMetricCards() {
+      const grid = $("metric-grid");
+      grid.innerHTML = METRICS.map((metric) => `
+        <article class="panel metric-card" aria-labelledby="title-${metric.key}">
+          <div class="metric-header">
+            <div class="metric-name-wrap">
+              <span class="metric-icon" style="background:${metric.color}18;color:${metric.color}" aria-hidden="true">${metric.icon}</span>
+              <div>
+                <h3 class="metric-title" id="title-${metric.key}">${metric.label}</h3>
+                <div class="metric-target" id="target-${metric.key}"></div>
+              </div>
+            </div>
+            <div class="metric-current">
+              <div class="metric-value" id="value-${metric.key}">—</div>
+              <div class="metric-date" id="date-${metric.key}">No entries yet</div>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas class="metric-chart" id="chart-${metric.key}" role="img" aria-label="${metric.label} over time"></canvas>
+            <div class="empty-chart" id="empty-${metric.key}">No entries in this period</div>
+          </div>
+        </article>`).join("");
+    }
+
+    function buildTargetFields() {
+      const grid = $("target-grid");
+      grid.innerHTML = METRICS.map((metric) => {
+        const isBed = metric.key === "bed";
+        const value = isBed ? formatBedtime(state.targets.bed) : state.targets[metric.key];
+        const type = isBed ? "time" : "number";
+        const step = isBed ? "60" : metric.step;
+        const min = "0";
+        const max = isBed ? "23:59" : String(metric.max);
+        const suffix = metric.key === "bed" ? "" : (metric.unit === "h" ? " (hours)" : " (minutes)");
+        return `<div class="target-field">
+          <label for="target-input-${metric.key}">${metric.label}${suffix}</label>
+          <input id="target-input-${metric.key}" type="${type}" ${isBed ? "" : `min="${min}" max="${max}" step="${step}"`} value="${value}" required>
+        </div>`;
+      }).join("");
+    }
+
+    function getPlotValue(metric, value) {
+      return metric.key === "bed" ? bedtimePlotValue(value) : value;
+    }
+
+    function getYRange(metric, values, target) {
+      if (metric.key === "bed") {
+        const latest = Math.max(target, ...(values.length ? values : [30 * 60]));
+        return { min: 18 * 60, max: Math.max(30 * 60, Math.ceil(latest / (2 * 60)) * (2 * 60)) };
+      }
+      const observedMax = values.length ? Math.max(...values) : 0;
+      const rawMax = Math.max(target * 1.35, observedMax * 1.18, metric.unit === "h" ? 4 : 30);
+      const interval = metric.unit === "h" ? 1 : 5;
+      const max = Math.ceil(rawMax / interval) * interval;
+      return { min: 0, max: max || 1 };
+    }
+
+    function drawMetricChart(canvas, metric, dates) {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const width = Math.max(260, Math.floor(canvas.clientWidth || 300));
+      const height = Math.max(150, Math.floor(canvas.clientHeight || 184));
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const left = 43, right = 12, top = 12, bottom = 30;
+      const plotWidth = width - left - right;
+      const plotHeight = height - top - bottom;
+      if (plotWidth <= 0 || plotHeight <= 0) return;
+
+      const values = dates.map((date) => {
+        const value = state.entries[date]?.[metric.key];
+        return value == null ? null : getPlotValue(metric, value);
+      });
+      const actualValues = values.filter((value) => value !== null);
+      const target = getPlotValue(metric, state.targets[metric.key]);
+      const range = getYRange(metric, actualValues, target);
+      const yFor = (value) => top + (range.max - value) / (range.max - range.min) * plotHeight;
+      const xFor = (index) => dates.length <= 1 ? left + plotWidth / 2 : left + index / (dates.length - 1) * plotWidth;
+
+      // Horizontal grid and y-axis labels.
+      ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i <= 4; i++) {
+        const value = range.min + (range.max - range.min) * i / 4;
+        const y = yFor(value);
+        ctx.beginPath();
+        ctx.strokeStyle = "#edf0f5";
+        ctx.lineWidth = 1;
+        ctx.moveTo(left, y);
+        ctx.lineTo(width - right, y);
+        ctx.stroke();
+        let label;
+        if (metric.key === "bed") label = bedtimeAxisLabel(value);
+        else label = metric.unit === "h" ? `${Number(value).toFixed(0)}` : `${Math.round(value)}`;
+        ctx.fillStyle = "#8791a3";
+        ctx.fillText(label, left - 8, y);
+      }
+
+      // Target threshold is always shown on the metric's own scale.
+      const targetY = yFor(target);
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = "#d18a24";
+      ctx.lineWidth = 1.7;
+      ctx.beginPath();
+      ctx.moveTo(left, targetY);
+      ctx.lineTo(width - right, targetY);
+      ctx.stroke();
+      ctx.restore();
+
+      // Only connect consecutive calendar days; missing days remain visible as gaps.
+      ctx.lineWidth = 2.2;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      for (let i = 1; i < values.length; i++) {
+        if (values[i - 1] === null || values[i] === null) continue;
+        ctx.beginPath();
+        ctx.strokeStyle = metric.color;
+        ctx.moveTo(xFor(i - 1), yFor(values[i - 1]));
+        ctx.lineTo(xFor(i), yFor(values[i]));
+        ctx.stroke();
+      }
+
+      // Points use target status, not a shared percentage scale.
+      for (let i = 0; i < values.length; i++) {
+        if (values[i] === null) continue;
+        const raw = state.entries[dates[i]][metric.key];
+        const good = isOnTarget(metric, raw);
+        ctx.beginPath();
+        ctx.fillStyle = good ? "#16845b" : "#c64d49";
+        ctx.arc(xFor(i), yFor(values[i]), 3.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "#fff";
+        ctx.stroke();
+      }
+
+      // Date labels: start, midpoint, and end keep the x-axis readable on phones.
+      if (dates.length) {
+        const indexes = [...new Set([0, Math.floor((dates.length - 1) / 2), dates.length - 1])];
+        ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.fillStyle = "#8791a3";
+        ctx.textBaseline = "alphabetic";
+        indexes.forEach((index, position) => {
+          const x = xFor(index);
+          ctx.textAlign = indexes.length === 1 ? "center" : (position === 0 ? "left" : position === indexes.length - 1 ? "right" : "center");
+          ctx.fillText(formatShortDate(dates[index]), x, height - 7);
+        });
+      }
+
+      const accessibleValues = dates.map((date) => {
+        const raw = state.entries[date]?.[metric.key];
+        return raw == null ? null : `${date}: ${formatMetricValue(metric.key, raw)}`;
+      }).filter(Boolean);
+      canvas.setAttribute("aria-label", `${metric.label}. ${formatTarget(metric, state.targets[metric.key])}. ${accessibleValues.length ? accessibleValues.join("; ") : "No entries in this period."}`);
+    }
+
+    function renderCharts() {
+      const dates = getDateRange();
+      for (const metric of METRICS) {
+        const canvas = $(`chart-${metric.key}`);
+        const empty = $(`empty-${metric.key}`);
+        const target = state.targets[metric.key];
+        $(`target-${metric.key}`).textContent = formatTarget(metric, target);
+        const latestDate = [...dates].reverse().find((date) => state.entries[date]?.[metric.key] != null);
+        if (latestDate) {
+          const value = state.entries[latestDate][metric.key];
+          $(`value-${metric.key}`).textContent = formatMetricValue(metric.key, value);
+          $(`date-${metric.key}`).textContent = formatShortDate(latestDate);
+        } else {
+          $(`value-${metric.key}`).textContent = "—";
+          $(`date-${metric.key}`).textContent = "No recent entry";
+        }
+        const hasValue = dates.some((date) => state.entries[date]?.[metric.key] != null);
+        empty.style.display = hasValue ? "none" : "grid";
+        drawMetricChart(canvas, metric, dates);
+      }
+      document.querySelectorAll(".range-button").forEach((button) => {
+        const active = Number(button.dataset.days) === rangeDays;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
       });
     }
-    ds.push({label:"100% = target", borderColor:"#8b949e", borderDash:[6,4],
-      pointRadius:0, borderWidth:1.5, data: labels.map(()=>100)});
-  } else {
-    const m = METRICS[current];
-    ds.push({
-      label:m.label, borderColor:m.color, backgroundColor:m.color,
-      borderWidth:2.5, pointRadius:4, spanGaps:true,
-      pointBackgroundColor: labels.map(d=>{
-        const v = data[d] ? data[d][current] : null;
-        return pointColor(current, v);
-      }),
-      data: labels.map(d=>{
-        let v = data[d] ? data[d][current] : null;
-        if(v!=null && current==="bed") v = bedNorm(v);
-        return v;
-      }),
-    });
-    ds.push({label:"Baseline "+m.base+m.unit, borderColor:"#f85149", borderDash:[6,4],
-      pointRadius:0, borderWidth:1.5, data: labels.map(()=>m.base)});
-  }
 
-  if(chart) chart.destroy();
-  const ctx = document.getElementById("chart").getContext("2d");
-  const isBed = current==="bed";
-  chart = new Chart(ctx, {
-    type:"line",
-    data:{labels:xLabels, datasets:ds},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{mode:"index", intersect:false},
-      scales:{
-        x:{ticks:{color:"#8b949e", maxRotation:60, autoSkip:true, font:{size:10}}, grid:{color:"#21262d"}},
-        y:{
-          min: current==="all" ? 0 : undefined,
-          max: isBed ? 30 : undefined,
-          ticks:{ color:"#8b949e", callback: isBed ? v => (v%24)+":00" : undefined },
-          grid:{color:"#21262d"},
-          title:{display:current==="all", text:"% of baseline", color:"#8b949e"},
-        },
-      },
-      plugins:{ legend:{labels:{color:"#e6edf3", boxWidth:14, font:{size:11}}},
-        tooltip:{ callbacks:{ title: items => labels[items[0].dataIndex] } } },
-    },
-  });
-}
+    function fillEntryForm(date) {
+      $("entry-date").value = date;
+      const entry = state.entries[date] || {};
+      $("entry-sleep").value = entry.sleep ?? "";
+      $("entry-screen").value = entry.screen ?? "";
+      $("entry-focus").value = entry.focus ?? "";
+      $("entry-meditation").value = entry.med ?? "";
+      $("entry-bedtime").value = entry.bed == null ? "" : `${String(Math.floor(entry.bed / 60)).padStart(2, "0")}:${String(entry.bed % 60).padStart(2, "0")}`;
+      $("entry-reading").value = entry.read ?? "";
+    }
 
-function fillForm(d){
-  document.getElementById("fDate").value = d;
-  const e = data[d] || {};
-  for(const k in METRICS){
-    document.getElementById({sleep:"fSleep",screen:"fScreen",focus:"fFocus",med:"fMed",bed:"fBed",read:"fRead"}[k]).value = e[k]!=null?e[k]:"";
-  }
-}
+    function readFormEntry() {
+      const numberOrNull = (id) => $(id).value.trim() === "" ? null : Number($(id).value);
+      const bedValue = $("entry-bedtime").value;
+      const bedtime = bedValue ? Number(bedValue.slice(0, 2)) * 60 + Number(bedValue.slice(3, 5)) : null;
+      return {
+        sleep: numberOrNull("entry-sleep"),
+        screen: numberOrNull("entry-screen"),
+        focus: numberOrNull("entry-focus"),
+        med: numberOrNull("entry-meditation"),
+        bed: bedtime,
+        read: numberOrNull("entry-reading")
+      };
+    }
 
-function render(){
-  buildTabs(); buildRangeBtns(); renderChart();
-  fillForm(new Date().toISOString().slice(0,10));
-}
+    function saveEntry(event) {
+      event.preventDefault();
+      const date = $("entry-date").value;
+      if (!parseDateKey(date)) { showToast("Choose a valid date."); return; }
+      const entry = readFormEntry();
+      if (Object.values(entry).every((value) => value === null)) {
+        showToast("Enter at least one value before saving.");
+        return;
+      }
+      for (const metric of METRICS) {
+        if (!validMetricValue(metric.key, entry[metric.key])) {
+          showToast(`Check the ${metric.label.toLowerCase()} value.`);
+          return;
+        }
+      }
+      state.entries[date] = entry;
+      const saved = persistState();
+      renderCharts();
+      showToast(saved ? `Saved ${formatShortDate(date)}.` : "Updated for now, but browser storage failed.");
+    }
 
-function exportData(){
-  const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "daily-tracker.json"; a.click();
-}
-function importData(ev){
-  const f = ev.target.files[0]; if(!f) return;
-  const r = new FileReader();
-  r.onload = ()=>{ try{ data = JSON.parse(r.result); save(); render(); }catch(e){ alert("Invalid file"); } };
-  r.readAsText(f);
-}
+    function clearDay() {
+      const date = $("entry-date").value;
+      if (!parseDateKey(date) || !state.entries[date]) {
+        showToast("There is no saved entry for this date.");
+        return;
+      }
+      if (!confirm(`Delete all measurements for ${formatShortDate(date)}? This cannot be undone unless you exported a backup.`)) return;
+      delete state.entries[date];
+      persistState();
+      fillEntryForm(date);
+      renderCharts();
+      showToast("Day cleared.");
+    }
 
-document.getElementById("fDate").addEventListener("change", function(){ fillForm(this.value); });
+    function saveTargets(event) {
+      event.preventDefault();
+      const next = {};
+      for (const metric of METRICS) {
+        const input = $(`target-input-${metric.key}`);
+        let value;
+        if (metric.key === "bed") {
+          if (!input.value) { showToast("Choose a bedtime target."); return; }
+          value = Number(input.value.slice(0, 2)) * 60 + Number(input.value.slice(3, 5));
+        } else {
+          value = Number(input.value);
+        }
+        if (!Number.isFinite(value) || value < 0 || value > metric.max ||
+            (["med", "read"].includes(metric.key) && !Number.isInteger(value))) {
+          showToast(`Check the ${metric.label.toLowerCase()} target.`);
+          input.focus();
+          return;
+        }
+        next[metric.key] = value;
+      }
+      state.targets = next;
+      const saved = persistState();
+      renderCharts();
+      showToast(saved ? "Targets updated." : "Targets updated for now, but browser storage failed.");
+    }
 
-render();
-</script>
+    function resetTargets() {
+      if (!confirm("Restore all six default targets? Your daily entries will not change.")) return;
+      state.targets = { ...DEFAULT_TARGETS };
+      buildTargetFields();
+      persistState();
+      renderCharts();
+      showToast("Default targets restored.");
+    }
+
+    function exportData() {
+      const backup = {
+        app: "Daily Log",
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        entries: state.entries,
+        targets: state.targets
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `daily-log-backup-${localDateKey()}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast("Backup exported.");
+    }
+
+    function parseBackup(parsed) {
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("The file is not a valid Daily Log backup.");
+      if (parsed.version === 2 && parsed.entries) {
+        return {
+          entries: normalizeEntries(parsed.entries, false),
+          targets: parsed.targets ? normalizeTargets(parsed.targets) : null
+        };
+      }
+      // Backward compatibility: the first version exported a date -> measurements object.
+      return { entries: normalizeEntries(parsed, true), targets: null };
+    }
+
+    async function importData(file) {
+      if (!file) return;
+      try {
+        const parsed = JSON.parse(await file.text());
+        const backup = parseBackup(parsed);
+        const count = Object.keys(backup.entries).length;
+        if (!confirm(`Import ${count} day(s)? Dates included in the file will replace the matching days in this browser. Other dates will remain. ${backup.targets ? "The backup's target settings will also be imported." : "Your current targets will remain."}`)) return;
+        state.entries = { ...state.entries, ...backup.entries };
+        if (backup.targets) state.targets = backup.targets;
+        const saved = persistState();
+        buildTargetFields();
+        renderCharts();
+        fillEntryForm($("entry-date").value || localDateKey());
+        showToast(saved ? `Imported ${count} day(s).` : "Imported in memory, but browser storage failed.");
+      } catch (error) {
+        alert(`Could not import this file: ${error.message}`);
+      } finally {
+        $("import-file").value = "";
+      }
+    }
+
+    function setupEvents() {
+      $("entry-form").addEventListener("submit", saveEntry);
+      $("entry-date").addEventListener("change", (event) => fillEntryForm(event.target.value));
+      $("clear-day").addEventListener("click", clearDay);
+      $("targets-form").addEventListener("submit", saveTargets);
+      $("reset-targets").addEventListener("click", resetTargets);
+      $("export-data").addEventListener("click", exportData);
+      $("import-data").addEventListener("click", () => $("import-file").click());
+      $("import-file").addEventListener("change", (event) => importData(event.target.files?.[0]));
+      $("range-bar").addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-days]");
+        if (!button) return;
+        rangeDays = Number(button.dataset.days);
+        renderCharts();
+      });
+      window.addEventListener("resize", () => renderCharts());
+    }
+
+    function registerServiceWorker() {
+      if (!("serviceWorker" in navigator)) return;
+      const isSecure = location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+      if (!isSecure) return;
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(() => {
+          // The tracker remains usable; only offline caching is unavailable.
+        });
+      });
+    }
+
+    function init() {
+      loadState();
+      buildMetricCards();
+      buildTargetFields();
+      setupEvents();
+      fillEntryForm(localDateKey());
+      renderCharts();
+      registerServiceWorker();
+    }
+
+    init();
+  </script>
 </body>
 </html>
