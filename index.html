@@ -33,8 +33,12 @@ button.ghost{background:transparent;color:var(--dim);border:1px solid var(--bord
 .tab{flex:1;min-width:100px;padding:9px 4px;border-radius:8px;background:var(--card);
   border:1px solid var(--border);color:var(--dim);text-align:center;font-size:.72rem;cursor:pointer;}
 .tab.active{border-color:var(--accent);color:var(--accent);}
+.range{display:flex;gap:6px;margin-bottom:10px;}
+.rbtn{flex:1;padding:7px 0;border-radius:8px;background:#0d1117;border:1px solid var(--border);
+  color:var(--dim);font-size:.8rem;text-align:center;cursor:pointer;}
+.rbtn.active{border-color:var(--accent);color:var(--accent);}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-canvas{max-width:100%;}
+.chartBox{position:relative;height:320px;}
 .small{font-size:.75rem;color:var(--dim);}
 .row{display:flex;gap:8px;}
 .row>*{flex:1;}
@@ -45,7 +49,7 @@ canvas{max-width:100%;}
 <body>
 <div class="wrap">
   <h1>📈 Daily Tracker</h1>
-  <div class="sub">Log once a day. Data stays on this device. Add to home screen for the app-like experience.</div>
+  <div class="sub">Log once a day. Data stays on this device.</div>
 
   <div class="card">
     <div class="grid2">
@@ -67,41 +71,41 @@ canvas{max-width:100%;}
 
   <div class="card">
     <div class="tabs" id="tabs"></div>
-    <canvas id="chart" height="260"></canvas>
-    <div class="small" style="margin-top:8px;">Dashed line = baseline target. Dots below target for “at least” metrics (and above for “at most” like screentime/bedtime) are shown red.</div>
+    <div class="range" id="rangeBtns"></div>
+    <div class="chartBox"><canvas id="chart"></canvas></div>
+    <div class="small" style="margin-top:8px;">Dashed line = baseline target. Dots off-target are red.</div>
   </div>
 </div>
 <div id="toast">Saved ✓</div>
 
 <script>
+// ============================================================
+// EDIT YOUR BASELINES HERE  (base = threshold, dir = "min" or "max")
+// ============================================================
 const METRICS = {
-  sleep:  {label:"Sleep (h)",        unit:"h", base:8,   dir:"min", color:"#58a6ff"},
-  screen: {label:"Screentime (h)",   unit:"h", base:3,   dir:"max", color:"#f85149"},
-  focus:  {label:"Deep focus (h)",   unit:"h", base:2,   dir:"min", color:"#3fb950"},
-  med:    {label:"Meditation (min)", unit:"min", base:10,dir:"min", color:"#bc8cff"},
-  bed:    {label:"Bedtime (24h)",    unit:"",  base:23.5,dir:"max", color:"#ffa657"},
-  read:   {label:"Reading (min)",    unit:"min", base:20,dir:"min", color:"#76e3ea"},
+  sleep:  {label:"Sleep (h)",        unit:"h", base:8,    dir:"min", color:"#58a6ff"},
+  screen: {label:"Screentime (h)",   unit:"h", base:3,    dir:"max", color:"#f85149"},
+  focus:  {label:"Deep focus (h)",   unit:"h", base:2,    dir:"min", color:"#3fb950"},
+  med:    {label:"Meditation (min)", unit:"min", base:10, dir:"min", color:"#bc8cff"},
+  bed:    {label:"Bedtime (24h)",    unit:"",  base:23.5, dir:"max", color:"#ffa657"},
+  read:   {label:"Reading (min)",    unit:"min", base:20, dir:"min", color:"#76e3ea"},
 };
+// ============================================================
 const LS_KEY = "dailyTracker.v1";
 let data = load();
-let chart = null, current = "all";
+let chart = null, current = "all", rangeDays = 14;
 
-// Default bedtimes wrap past midnight; convert 0-6 to 24-30 for graphing
 function bedNorm(v){ return (v >= 0 && v < 6) ? v + 24 : v; }
-function bedDenorm(v){ return v >= 24 ? v - 24 : v; }
-
-function load(){
-  try{ return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }catch(e){ return {}; }
-}
+function load(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }catch(e){ return {}; } }
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(data)); }
 
 function saveEntry(){
   const d = document.getElementById("fDate").value;
   if(!d){ alert("Pick a date"); return; }
   const entry = {
-    sleep:  val("fSleep"), screen: val("fScreen"), focus: val("fFocus"),
-    med:    val("fMed"),    read:   val("fRead"),
-    bed:    document.getElementById("fBed").value === "" ? null : val("fBed"),
+    sleep: val("fSleep"), screen: val("fScreen"), focus: val("fFocus"),
+    med: val("fMed"), read: val("fRead"),
+    bed: document.getElementById("fBed").value === "" ? null : val("fBed"),
   };
   data[d] = {...(data[d]||{}), ...entry};
   save(); render();
@@ -110,7 +114,12 @@ function saveEntry(){
 }
 function val(id){ const v = parseFloat(document.getElementById(id).value); return isNaN(v)?null:v; }
 
-function dates(){ return Object.keys(data).sort(); }
+// Only show the last `rangeDays` dates with at least one entry
+function visibleDates(){
+  const all = Object.keys(data).sort();
+  if(rangeDays === 0) return all; // "All"
+  return all.slice(-rangeDays);
+}
 
 function buildTabs(){
   const tabs = document.getElementById("tabs");
@@ -126,10 +135,21 @@ function buildTabs(){
   for(const k in METRICS) mk(k, METRICS[k].label);
 }
 
+function buildRangeBtns(){
+  const box = document.getElementById("rangeBtns");
+  box.innerHTML = "";
+  [[7,"7d"],[14,"14d"],[30,"30d"],[90,"90d"],[0,"All"]].forEach(([n,lbl])=>{
+    const el = document.createElement("div");
+    el.className = "rbtn" + (n===rangeDays?" active":"");
+    el.textContent = lbl;
+    el.onclick = ()=>{ rangeDays=n; buildRangeBtns(); renderChart(); };
+    box.appendChild(el);
+  });
+}
+
 function renderChart(){
-  const ds = [], labels = dates();
-  const xLabels = labels.map(d=>d.slice(5));
-  const plugins = [];
+  const ds = [], labels = visibleDates();
+  const xLabels = labels.map(d=>d.slice(5).replace("-","/"));
 
   function pointColor(key, raw){
     if(raw==null) return METRICS[key].color;
@@ -143,7 +163,7 @@ function renderChart(){
       const m = METRICS[k];
       ds.push({
         label:m.label, borderColor:m.color, backgroundColor:m.color,
-        borderWidth:2, pointRadius:3, spanGaps:true, yAxisID:"y",
+        borderWidth:2, pointRadius:3, spanGaps:true,
         data: labels.map(d=>{
           let v = data[d] ? data[d][k] : null;
           if(v==null) return null;
@@ -171,7 +191,6 @@ function renderChart(){
     });
     ds.push({label:"Baseline "+m.base+m.unit, borderColor:"#f85149", borderDash:[6,4],
       pointRadius:0, borderWidth:1.5, data: labels.map(()=>m.base)});
-    // bedtime axis runs to 30 (i.e. 6am)
   }
 
   if(chart) chart.destroy();
@@ -184,7 +203,7 @@ function renderChart(){
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:"index", intersect:false},
       scales:{
-        x:{ticks:{color:"#8b949e", maxRotation:60, font:{size:10}}, grid:{color:"#21262d"}},
+        x:{ticks:{color:"#8b949e", maxRotation:60, autoSkip:true, font:{size:10}}, grid:{color:"#21262d"}},
         y:{
           min: current==="all" ? 0 : undefined,
           max: isBed ? 30 : undefined,
@@ -197,20 +216,19 @@ function renderChart(){
         tooltip:{ callbacks:{ title: items => labels[items[0].dataIndex] } } },
     },
   });
-  document.getElementById("chart").style.height = "320px";
+}
+
+function fillForm(d){
+  document.getElementById("fDate").value = d;
+  const e = data[d] || {};
+  for(const k in METRICS){
+    document.getElementById({sleep:"fSleep",screen:"fScreen",focus:"fFocus",med:"fMed",bed:"fBed",read:"fRead"}[k]).value = e[k]!=null?e[k]:"";
+  }
 }
 
 function render(){
-  buildTabs();
-  renderChart();
-  // prefill today's date & existing values
-  const today = new Date().toISOString().slice(0,10);
-  document.getElementById("fDate").value = today;
-  const e = data[today] || {};
-  for(const k in METRICS){
-    const el = document.getElementById({sleep:"fSleep",screen:"fScreen",focus:"fFocus",med:"fMed",bed:"fBed",read:"fRead"}[k]);
-    el.value = e[k]!=null ? e[k] : "";
-  }
+  buildTabs(); buildRangeBtns(); renderChart();
+  fillForm(new Date().toISOString().slice(0,10));
 }
 
 function exportData(){
@@ -226,12 +244,7 @@ function importData(ev){
   r.readAsText(f);
 }
 
-document.getElementById("fDate").addEventListener("change", function(){
-  const e = data[this.value] || {};
-  for(const k in METRICS){
-    document.getElementById({sleep:"fSleep",screen:"fScreen",focus:"fFocus",med:"fMed",bed:"fBed",read:"fRead"}[k]).value = e[k]!=null?e[k]:"";
-  }
-});
+document.getElementById("fDate").addEventListener("change", function(){ fillForm(this.value); });
 
 render();
 </script>
